@@ -58,6 +58,14 @@ public class TableConfigModel extends AbstractTableModel {
 		
 		rowData.get(rowIndex)[columnIndex] = aValue;
 		
+		if (columnIndex == 0) {
+			
+			if (aValue instanceof ColumnType) {
+				ColumnType columnType = (ColumnType) aValue;
+				rowData.get(rowIndex)[2] = Integer.toString(columnType.defaultByteLength());
+			}
+		}
+		
 		if (changeListener != null) {
 			
 			changeListener.accept(this);

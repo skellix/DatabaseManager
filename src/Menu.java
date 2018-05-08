@@ -30,22 +30,20 @@ public class Menu {
 	private DefaultMutableTreeNode rootTreeNode;
 	private DefaultTreeModel treeModel;
 	private JTree tree;
-	private List<Database> databases;
 	private JFrame frame;
 	private DatabaseManagerWindow databaseManagerWindow;
 
-	private Menu(DefaultMutableTreeNode rootTreeNode, DefaultTreeModel treeModel, JTree tree, List<Database> databases, JFrame frame, DatabaseManagerWindow databaseManagerWindow) {
+	private Menu(DefaultMutableTreeNode rootTreeNode, DefaultTreeModel treeModel, JTree tree, JFrame frame, DatabaseManagerWindow databaseManagerWindow) {
 		
 		this.rootTreeNode = rootTreeNode;
 		this.treeModel = treeModel;
 		this.tree = tree;
-		this.databases = databases;
 		this.frame = frame;
 		this.databaseManagerWindow = databaseManagerWindow;
 	}
 
-	public static Component create(DefaultMutableTreeNode rootTreeNode, DefaultTreeModel treeModel, JTree tree, List<Database> databases, JFrame frame, DatabaseManagerWindow databaseManagerWindow) {
-		Menu menu = new Menu(rootTreeNode, treeModel, tree, databases, frame, databaseManagerWindow);
+	public static Component create(DefaultMutableTreeNode rootTreeNode, DefaultTreeModel treeModel, JTree tree, JFrame frame, DatabaseManagerWindow databaseManagerWindow) {
+		Menu menu = new Menu(rootTreeNode, treeModel, tree, frame, databaseManagerWindow);
 		return menu.menuBar();
 	}
 	
@@ -74,11 +72,11 @@ public class Menu {
 				
 				if ((file.exists() && file.isDirectory()) || file.mkdir()) {
 					
-					Database database = Database.getOrCreate(file.toPath(), rootTreeNode, treeModel, tree, databases);
+					Database database = Database.getOrCreate(file.toPath(), rootTreeNode, treeModel, tree, databaseManagerWindow.databases);
 					
 					if (database != null) {
 						
-						databases.add(database);
+						databaseManagerWindow.databases.add(database);
 					}
 					
 				} else {
@@ -113,11 +111,11 @@ public class Menu {
 				
 				if (file.exists() && file.isDirectory()) {
 					
-					Database database = Database.getOrCreate(file.toPath(), rootTreeNode, treeModel, tree, databases);
+					Database database = Database.getOrCreate(file.toPath(), rootTreeNode, treeModel, tree, databaseManagerWindow.databases);
 					
 					if (database != null) {
 						
-						databases.add(database);
+						databaseManagerWindow.databases.add(database);
 					}
 					
 				} else {
@@ -184,7 +182,7 @@ public class Menu {
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			
-			if (databases.isEmpty()) {
+			if (databaseManagerWindow.databases.isEmpty()) {
 				
 				noDatabasesFound();
 				return;
@@ -203,7 +201,7 @@ public class Menu {
 		JPanel panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 		
-		for (Database database : databases) {
+		for (Database database : databaseManagerWindow.databases) {
 			
 			panel.add(new JButton(new AbstractAction(database.getDatabasePath().getFileName().toString()) {
 				

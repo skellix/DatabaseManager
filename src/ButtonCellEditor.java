@@ -1,7 +1,6 @@
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.function.Consumer;
 
 import javax.swing.DefaultCellEditor;
 import javax.swing.JButton;

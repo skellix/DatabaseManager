@@ -97,7 +97,7 @@ public class Database {
 					}
 					
 					treeModel.reload(childNode);
-					tree.expandPath(new TreePath(tablesNode.getPath()));
+					tree.expandPath(new TreePath(databaseNode.getPath()));
 					treeModel.reload(childNode);
 				}
 			}

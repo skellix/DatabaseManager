@@ -25,17 +25,18 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.ListCellRenderer;
-import javax.swing.event.ChangeEvent;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.TableColumnModelEvent;
-import javax.swing.event.TableColumnModelListener;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableModel;
+import javax.swing.text.Document;
+import javax.swing.text.Style;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
@@ -46,9 +47,12 @@ import com.skellix.database.table.RowFormat;
 import com.skellix.database.table.RowFormatter;
 import com.skellix.database.table.RowFormatterException;
 
+import treeparser.TreeNode;
+
 public class TableEditor {
 	
 	public static JPanel tableEditorInput(Database database, JPanel tab, JTabbedPane tabbs, JTree tree, DefaultTreeModel treeModel, DefaultMutableTreeNode rootTreeNode) {
+		
 		JPanel panel = new JPanel();
 		panel.setLayout(new BorderLayout());
 		
@@ -135,16 +139,32 @@ public class TableEditor {
 		
 		JTextPane compiledTableOutput = new JTextPane();
 		
+		Style error = compiledTableOutput.addStyle("error", null);
+		Style plain = compiledTableOutput.addStyle("plain", null);
+		Style tag = compiledTableOutput.addStyle("tag", null);
+		Style constant = compiledTableOutput.addStyle("constant", null);
+		Style variable = compiledTableOutput.addStyle("variable", null);
+		Style function = compiledTableOutput.addStyle("function", null);
+		Style comment = compiledTableOutput.addStyle("comment", null);
+		
+		StyleConstants.setForeground(error, Color.RED);
+		StyleConstants.setBackground(error, Color.PINK);
+		StyleConstants.setItalic(error, true);
+		
+		StyleConstants.setForeground(tag, new Color(235, 176, 53));
+		StyleConstants.setBold(tag, true);
+		
+		StyleConstants.setForeground(constant, new Color(221, 30, 47));
+		StyleConstants.setBold(constant, true);
+		
+		StyleConstants.setForeground(variable, new Color(6, 162, 203));
+		
+		StyleConstants.setForeground(function, new Color(33, 133, 89));
+		
+		StyleConstants.setForeground(comment, Color.GRAY);
+		
 		JPanel compilePanel = new JPanel();
 		compilePanel.setLayout(new BorderLayout());
-		compilePanel.add(new JButton(new AbstractAction("Compile") {
-			
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				
-				compileTable(table, compiledTableOutput);
-			}
-		}), BorderLayout.NORTH);
 		compilePanel.add(compiledTableOutput, BorderLayout.CENTER);
 		JButton createButton = new JButton(new AbstractAction("Create") {
 			
@@ -209,7 +229,7 @@ public class TableEditor {
 			@Override
 			public void changedUpdate(DocumentEvent e) {
 				
-				validateTableSettings(database, nameField, compiledTableOutput, createButton);
+//				validateTableSettings(database, nameField, compiledTableOutput, createButton);
 			}
 		};
 		compiledTableOutput.getDocument().addDocumentListener(editListener);
@@ -240,8 +260,6 @@ public class TableEditor {
 			String columnName = (String) model.getValueAt(i, 1);
 			Integer columnSize = Integer.parseInt((String) model.getValueAt(i, 2));
 			
-			System.out.println("type: " + columnType.name());
-			
 			columnNames.add(columnName);
 			columnTypes.put(columnName, columnType);
 			columnSizes.put(columnName, columnSize);
@@ -258,41 +276,87 @@ public class TableEditor {
 		String name = nameField.getText();
 		String formatText = compiledTableOutput.getText();
 		
+		boolean error = false;
+		
+		createButton.setEnabled(false);
+		nameField.setBackground(Color.WHITE);
+		compiledTableOutput.setBackground(Color.WHITE);
+		
 		if (name.length() == 0) {
 			
 			nameField.setBackground(Color.PINK);
-			System.err.println("ERROR: empty table name");
-			createButton.setEnabled(false);
-			return;
-		}
-		
-		for (char c : name.toCharArray()) {
+//			System.err.println("ERROR: empty table name");
+			error = true;
 			
-			if (Character.isLetter(c) || Character.isDigit(c) || c == '_' || c == '-') {
+		} else {
+			
+			for (char c : name.toCharArray()) {
 				
-				continue;
+				if (Character.isLetter(c) || Character.isDigit(c) || c == '_' || c == '-') {
+					
+					continue;
+				}
+				
+				nameField.setBackground(Color.PINK);
+//				System.err.println("ERROR: invalid character in table name '" + c + "' ");
+				error = true;
 			}
-			
-			nameField.setBackground(Color.PINK);
-			System.err.println("ERROR: invalid character in table name '" + c + "' ");
-			createButton.setEnabled(false);
-			return;
 		}
-		
-		nameField.setBackground(Color.WHITE);
 		
 		if (formatText.length() == 0) {
 			
-			System.err.println("ERROR: you need to compile the table first");
-			createButton.setEnabled(false);
+			compiledTableOutput.setBackground(Color.PINK);
+//			System.err.println("ERROR: you need to compile the table first");
+			error = true;
+			
+		} else {
+			
+			try {
+				
+				List<List<TreeNode>> codeParts = RowFormatter.getAst(formatText);
+				
+				List<TreeNode> types = codeParts.get(0);
+				List<TreeNode> names = codeParts.get(1);
+				List<TreeNode> sizes = codeParts.get(2);
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					
+					@Override
+					public void run() {
+						
+						StyledDocument doc = compiledTableOutput.getStyledDocument();
+						
+						for (TreeNode type : types) {
+							
+							doc.setCharacterAttributes(type.start, type.end - type.start + 1, doc.getStyle("function"), true);
+							doc.setCharacterAttributes(type.end + 1, 1, doc.getStyle("plain"), true);
+						}
+						
+						for (TreeNode size : sizes) {
+							
+							doc.setCharacterAttributes(size.start, size.end - size.start + 1, doc.getStyle("constant"), true);
+							doc.setCharacterAttributes(size.end + 1, 1, doc.getStyle("plain"), true);
+						}
+					}
+				});
+				
+			} catch (RowFormatterException e) {
+				e.printStackTrace();
+				error = true;
+			}
+		}
+		
+		if (error) {
+			
 			return;
 		}
 		
-		RowFormat rowFormat;
 		try {
-			rowFormat = RowFormatter.parse(formatText);
+			
+			RowFormat rowFormat = RowFormatter.parse(formatText);
 			createButton.setEnabled(true);
 			compiledTableOutput.setBackground(Color.WHITE);
+			
 		} catch (RowFormatterException e1) {
 			System.err.println(e1.getMessage());
 			compiledTableOutput.setBackground(Color.PINK);

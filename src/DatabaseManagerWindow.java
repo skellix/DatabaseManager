@@ -5,11 +5,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,38 +13,17 @@ import java.util.Map;
 import javax.swing.AbstractAction;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.DefaultCellEditor;
-import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
-import javax.swing.ListCellRenderer;
-import javax.swing.event.TableModelListener;
-import javax.swing.table.AbstractTableModel;
-import javax.swing.table.TableCellEditor;
-import javax.swing.table.TableCellRenderer;
-import javax.swing.table.TableColumn;
-import javax.swing.table.TableColumnModel;
-import javax.swing.table.TableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreePath;
-
-import com.skellix.database.table.ColumnType;
-import com.skellix.database.table.ExperimentalTable;
-import com.skellix.database.table.RowFormat;
-import com.skellix.database.table.RowFormatter;
-import com.skellix.database.table.RowFormatterException;
 
 public class DatabaseManagerWindow {
 	
@@ -61,7 +36,7 @@ public class DatabaseManagerWindow {
 	private DefaultTreeModel treeModel = new DefaultTreeModel(rootTreeNode);
 	private JTree tree = new JTree(treeModel);
 	
-	private List<Database> databases = new ArrayList<>();
+	public List<Database> databases = new ArrayList<>();
 	
 	private ActionListener addAddTabActionListener = new ActionListener() {
 		
@@ -85,7 +60,7 @@ public class DatabaseManagerWindow {
 
 	public void show() {
 		
-		frame.add(Menu.create(rootTreeNode, treeModel, tree, databases, frame, this), BorderLayout.NORTH);
+		frame.add(Menu.create(rootTreeNode, treeModel, tree, frame, this), BorderLayout.NORTH);
 		frame.add(statusPanel(), BorderLayout.SOUTH);
 		
 		JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true, explorerView(), editorView());
@@ -98,6 +73,8 @@ public class DatabaseManagerWindow {
 		Map<Object, Object> hints = new LinkedHashMap<>();
 		hints.put(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 		((Graphics2D) frame.getGraphics()).addRenderingHints(hints);
+		
+		frame.addWindowListener(new AutosaveWindowListener(rootTreeNode, treeModel, tree, this));
 	}
 
 	private JPanel statusPanel() {
