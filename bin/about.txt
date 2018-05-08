@@ -1,4 +1,0 @@
-DatabaseManager
-Author: Alexander Jones
-GitHub: https://github.com/skellix
-Email: alexander.jones.fs@gmail.com
