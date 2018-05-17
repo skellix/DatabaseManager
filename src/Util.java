@@ -34,7 +34,6 @@ public class Util {
 					continue;
 				}
 			}
-			break;
 		}
 		return null;
 	}

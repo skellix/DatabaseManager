@@ -9,6 +9,7 @@ public class ButtonCellRenderer extends JButton implements TableCellRenderer {
 
 	public ButtonCellRenderer() {
 		setOpaque(true);
+		setContentAreaFilled(false);
 	}
 
 	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,

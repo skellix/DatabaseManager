@@ -3,11 +3,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
+
+import com.skellix.database.row.RowFormatter;
+import com.skellix.database.row.RowFormatterException;
+import com.skellix.database.table.Table;
 
 public class Database {
 	
@@ -124,6 +129,102 @@ public class Database {
 	public Path getQueriesDir() {
 		
 		return queriesDir;
+	}
+
+	public List<Table> tables() {
+		
+		try {
+			return Files.list(tablesDir)
+					.map(directory -> {
+						
+						try {
+							return Table.getOrCreate(directory, RowFormatter.parse(Table.getFormatPath(directory)));
+						} catch (IOException e) {
+							e.printStackTrace();
+						} catch (RowFormatterException e) {
+							e.printStackTrace();
+						}
+						return null;
+					})
+					.filter(predicate -> predicate != null)
+					.collect(Collectors.toList());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public void delete() {
+		
+		try {
+			Files.list(getTablesDir()).forEach(tablePath -> {
+				
+				try {
+					Table.deleteTable(tablePath);
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+			});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		try {
+			Files.list(getQueriesDir()).forEach(queryPath -> {
+				
+				try {
+					Files.delete(queryPath);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		try {
+			Path tablesDir = getTablesDir();
+			System.out.println("deleting: " + tablesDir.toAbsolutePath().toString());
+			tablesDir.toFile().delete();
+			Files.delete(tablesDir);
+			waitForDelete(tablesDir);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		try {
+			Path queriesDir = getQueriesDir();
+			System.out.println("deleting: " + queriesDir.toAbsolutePath().toString());
+			Files.delete(queriesDir);
+			waitForDelete(queriesDir);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		try {
+			Files.delete(getDatabasePath());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public void waitForDelete(Path path) throws IOException {
+		
+		long start = System.currentTimeMillis();
+		
+		while (System.currentTimeMillis() - start < 5000) {
+			
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
+			if (!Files.exists(path)) {
+				
+				return;
+			}
+		}
+		
+		throw new IOException("Unable to delete file: " + path.toAbsolutePath().toString());
 	}
 
 }

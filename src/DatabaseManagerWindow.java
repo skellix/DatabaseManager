@@ -2,6 +2,8 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -13,60 +15,110 @@ import java.util.Map;
 import javax.swing.AbstractAction;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
+import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
+import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeCellRenderer;
+import javax.swing.tree.TreeNode;
 
 public class DatabaseManagerWindow {
 	
 	private JFrame frame = new JFrame("");
-	private JTabbedPane tabbs;
+	private JTabbedPane tabbs = new JTabbedPane();
 	private JTextPane sourceArea = new JTextPane();
 	private JTextPane outputArea = new JTextPane();
 	
-	private DefaultMutableTreeNode rootTreeNode = new DefaultMutableTreeNode();
-	private DefaultTreeModel treeModel = new DefaultTreeModel(rootTreeNode);
-	private JTree tree = new JTree(treeModel);
+	public DefaultMutableTreeNode rootTreeNode = new DefaultMutableTreeNode();
+	public DefaultTreeModel treeModel = new DefaultTreeModel(rootTreeNode);
+	public JTree tree = new JTree(treeModel);
+	private Menu menu;
 	
 	public List<Database> databases = new ArrayList<>();
 	
-	private ActionListener addAddTabActionListener = new ActionListener() {
+	public DatabaseManagerWindow() {
+		tree.setCellRenderer(new TreeCellRenderer() {
+			
+			@Override
+			public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
+				
+				DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
+				
+				JPanel panel = new JPanel();
+				panel.setOpaque(false);
+				panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+				
+				Object userObject = node.getUserObject();
+				
+				if (userObject == null) {
+					
+					JLabel label = new JLabel("");
+					label.setOpaque(false);
+					panel.add(label);
+					
+				} else {
+					
+					TreeNode parent = node.getParent();
+					
+					if (parent instanceof DefaultMutableTreeNode) {
+						DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode) parent;
+						Object parentNodeObject = parentNode.getUserObject();
+						
+						if (parentNodeObject != null && parentNodeObject.toString().equals("databases")) {
+							
+							panel.add(new JLabel(UIManager.getIcon("FileView.hardDriveIcon")));
+						}
+					}
+					
+					JLabel label = new JLabel(userObject.toString());
+					label.setOpaque(false);
+					panel.add(label);
+				}
+				
+				return panel;
+			}
+		});
+	}
+	
+	private ActionListener addTabActionListener = new ActionListener() {
 		
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			
-			addQueryTab();
+			Object source = e.getSource();
+			
+			if (source instanceof JTabbedPane) {
+				
+				JTabbedPane tabbedPane = (JTabbedPane) source;
+				JPopupMenu popupMenu = new JPopupMenu("Create");
+				popupMenu.add(new JMenuItem(menu.createTableAction));
+				popupMenu.add(new JMenuItem(menu.createQueryAction));
+				Point pos = tabbedPane.getMousePosition();
+				popupMenu.show(tabbedPane, pos.x, pos.y);
+			}
 		}
 	};
-	
-	private void addQueryTab() {
-		
-		int index = tabbs.getTabCount () - 1;
-		String title = "untitled_" + String.valueOf(index) + ".query";
-		JPanel newTab = queryEditorTab();
-		tabbs.insertTab(title, null, newTab, null, index);
-		tabbs.setSelectedComponent(newTab);
-		
-		tabbs.setTabComponentAt(index, tabLabelWithCloseButton(newTab, title));
-	}
 
 	public void show() {
 		
-		frame.add(Menu.create(rootTreeNode, treeModel, tree, frame, this), BorderLayout.NORTH);
+		menu = Menu.create(rootTreeNode, treeModel, tree, frame, this);
+		frame.add(menu.menuBar(), BorderLayout.NORTH);
 		frame.add(statusPanel(), BorderLayout.SOUTH);
 		
 		JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true, explorerView(), editorView());
 		split.setDividerLocation(200);
 		frame.add(split, BorderLayout.CENTER);
-		frame.setSize(600, 600);
+		frame.setSize(800, 600);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setVisible(true);
 		
@@ -75,6 +127,8 @@ public class DatabaseManagerWindow {
 		((Graphics2D) frame.getGraphics()).addRenderingHints(hints);
 		
 		frame.addWindowListener(new AutosaveWindowListener(rootTreeNode, treeModel, tree, this));
+		
+		tree.addMouseListener(new TreeUi(tree, menu));
 	}
 
 	private JPanel statusPanel() {
@@ -107,17 +161,64 @@ public class DatabaseManagerWindow {
 		
 		JPanel panel = new JPanel();
 		panel.setLayout(new BorderLayout());
-		
-		tabbs = new JTabbedPane();
-		
 		addAddTab();
-		
 		panel.add(tabbs, BorderLayout.CENTER);
 		return panel;
 	}
+
+	private void addAddTab() {
+		
+		tabbs.addTab("+", null);
+	    tabbs.addMouseListener(new OnPressMouseListener(e -> {
+	    	
+	    	int index = tabbs.indexOfTab("+");
+	    	Rectangle bounds = tabbs.getUI().getTabBounds(tabbs, index);
+	    	if (bounds.contains(e.getPoint())) {
+	    		
+	    		addTabActionListener.actionPerformed(new ActionEvent(tabbs, ActionEvent.ACTION_PERFORMED, "+"));
+	    	}
+	    }));
+	}
+
+	public TableEditor newTableEditorTab(Database database) {
+		
+		int index = tabbs.getTabCount () - 1;
+		String title = "table_" + String.valueOf(index);
+		
+		JPanel tableEditorPanel = new JPanel();
+		tableEditorPanel.setLayout(new BorderLayout());
+		TableEditor tableEditor = TableEditor.tableEditorInput(database, tableEditorPanel, tabbs, tree, treeModel, rootTreeNode);
+		tableEditorPanel.add(tableEditor.getComponent());
+		
+		tabbs.insertTab(title, null, tableEditorPanel, null, index);
+		tabbs.setSelectedComponent(tableEditorPanel);
+		
+		tabbs.setTabComponentAt(index, tabLabelWithCloseButton(tabbs, tableEditorPanel, title));
+		
+		return tableEditor;
+	}
 	
-	private Component tabLabelWithCloseButton(JPanel tab, String title) {
+	public QueryEditor newQueryEditorTab(Database database) {
+		
+		int index = tabbs.getTabCount () - 1;
+		String title = "query_" + String.valueOf(index);
+		
+		JPanel queryEditorTab = new JPanel();
+		queryEditorTab.setLayout(new BorderLayout());
+		QueryEditor queryEditor = QueryEditor.queryEditorInput(title, database, queryEditorTab, tabbs, this);
+		queryEditorTab.add(queryEditor.getComponent(), BorderLayout.CENTER);
+		
+		tabbs.insertTab(title, null, queryEditorTab, null, index);
+		tabbs.setSelectedComponent(queryEditorTab);
+		
+		tabbs.setTabComponentAt(index, tabLabelWithCloseButton(tabbs, queryEditorTab, title));
+		
+		return queryEditor;
+	}
+	
+	public static Component tabLabelWithCloseButton(JTabbedPane tabbs, JPanel tab, String title) {
 		JPanel panel = new JPanel();
+		panel.setOpaque(false);
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
 		panel.add(new JLabel(title));
 		JButton closeButton = new JButton(new AbstractAction("X") {
@@ -137,88 +238,6 @@ public class DatabaseManagerWindow {
 		panel.add(Box.createHorizontalStrut(10));
 		panel.add(closeButton);
 		return panel;
-	}
-
-	private void addAddTab() {
-		tabbs.addTab("+", null);
-		
-		JPanel addPanel = new JPanel();
-		addPanel.setOpaque(false);
-		
-		JButton addTab = new JButton("+");
-	    addTab.setOpaque(false);
-	    addTab.setBorder(null);
-	    addTab.setContentAreaFilled(false);
-	    addTab.setFocusPainted(false);
-
-	    addTab.setFocusable(false);
-
-	    addPanel.add(addTab);
-	    
-	    tabbs.setTabComponentAt(tabbs.getTabCount () - 1, addPanel);
-	    
-	    addTab.addActionListener(addAddTabActionListener);
-	}
-
-	private JPanel queryEditorTab() {
-		JPanel panel = new JPanel();
-		panel.setLayout(new BorderLayout());
-		JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, true, queryEditorInput(), editorOutput());
-		split.setDividerLocation(500);
-		panel.add(split);
-		return panel;
-	}
-
-	private JPanel queryEditorInput() {
-		JPanel panel = new JPanel();
-		panel.setLayout(new BorderLayout());
-		JScrollPane jScrollPane = new JScrollPane(new JPanel(new BorderLayout()){{
-			add(sourceArea);
-		}});
-		LineNumberPanel lineNumberPanel = new LineNumberPanel(sourceArea, jScrollPane);
-		
-		panel.add(lineNumberPanel, BorderLayout.WEST);
-		panel.add(jScrollPane, BorderLayout.CENTER);
-		return panel;
-	}
-	
-	private JPanel editorOutput() {
-		JPanel panel = new JPanel();
-		panel.setLayout(new BorderLayout());
-		outputArea.setEditable(false);
-		outputArea.setBackground(Color.LIGHT_GRAY);
-		outputArea.setForeground(Color.DARK_GRAY);
-		JScrollPane jScrollPane = new JScrollPane(new JPanel(new BorderLayout()){{
-			add(outputArea);
-		}});
-		panel.add(jScrollPane, BorderLayout.CENTER);
-		return panel;
-	}
-
-	public void newTableEditorTab(Database database) {
-		
-		int index = tabbs.getTabCount () - 1;
-		String title = "table_" + String.valueOf(index);
-		JPanel newTab = tableEditorTab(database);
-		tabbs.insertTab(title, null, newTab, null, index);
-		tabbs.setSelectedComponent(newTab);
-		
-		tabbs.setTabComponentAt(index, tabLabelWithCloseButton(newTab, title));
-	}
-	
-	private JPanel tableEditorTab(Database database) {
-		
-		JPanel panel = new JPanel();
-		panel.setLayout(new BorderLayout());
-		panel.add(TableEditor.tableEditorInput(database, panel, tabbs, tree, treeModel, rootTreeNode));
-		return panel;
-	}
-
-	private JPanel addColumn() {
-		JPanel columnConfig = new JPanel();
-		columnConfig.setLayout(new BoxLayout(columnConfig, BoxLayout.X_AXIS));
-		
-		return columnConfig;
 	}
 
 }
